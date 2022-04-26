@@ -1,0 +1,2071 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2018-05-01/subscriptionDeploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "metadata": {
+    "_generator": {
+      "name": "bicep",
+      "version": "0.5.6.12127",
+      "templateHash": "16587070132197951366"
+    }
+  },
+  "parameters": {
+    "platformRgName": {
+      "type": "string",
+      "defaultValue": "azure-function-rg",
+      "metadata": {
+        "description": "Resource Group Name"
+      }
+    },
+    "vnetName": {
+      "type": "string",
+      "defaultValue": "functionapp-vnet",
+      "metadata": {
+        "description": "Virtual Network Name"
+      }
+    },
+    "workspaceName": {
+      "type": "string",
+      "defaultValue": "functionapp-log",
+      "metadata": {
+        "description": "Log Analytics Workspace Name"
+      }
+    },
+    "appInsightsName": {
+      "type": "string",
+      "defaultValue": "functionapp-appins",
+      "metadata": {
+        "description": "App Insights Name"
+      }
+    },
+    "fnAppName": {
+      "type": "string",
+      "defaultValue": "functionapp-appins",
+      "metadata": {
+        "description": "Function App Name"
+      }
+    },
+    "storageAccountName": {
+      "type": "string",
+      "defaultValue": "[format('st{0}', uniqueString(subscription().subscriptionId))]",
+      "metadata": {
+        "description": "Storage Account Name"
+      }
+    },
+    "vnetAddressPrefix": {
+      "type": "string",
+      "defaultValue": "10.100.0.0/16",
+      "metadata": {
+        "description": "The IP adddress space used for the virtual network."
+      }
+    },
+    "applicationSubnetAddressPrefix": {
+      "type": "string",
+      "defaultValue": "10.100.0.0/24",
+      "metadata": {
+        "description": "The IP address space used for the Azure Function integration subnet."
+      }
+    },
+    "privateEndpointSubnetAddressPrefix": {
+      "type": "string",
+      "defaultValue": "10.100.1.0/24",
+      "metadata": {
+        "description": "The IP address space used for the private endpoints."
+      }
+    },
+    "dnsZoneList": {
+      "type": "array",
+      "defaultValue": [
+        "privatelink.blob.core.windows.net",
+        "privatelink.table.core.windows.net",
+        "privatelink.queue.core.windows.net",
+        "privatelink.file.core.windows.net"
+      ],
+      "metadata": {
+        "description": "Array of Private DNS Zones to create"
+      }
+    },
+    "location": {
+      "type": "string",
+      "defaultValue": "australiaeast",
+      "metadata": {
+        "description": "Azure Region"
+      }
+    },
+    "functionAppPlanSku": {
+      "type": "string",
+      "defaultValue": "EP1",
+      "allowedValues": [
+        "EP1",
+        "EP2",
+        "EP3"
+      ],
+      "metadata": {
+        "description": "Specifies the Azure Function hosting plan SKU."
+      }
+    },
+    "enableResourceLock": {
+      "type": "bool",
+      "defaultValue": false,
+      "metadata": {
+        "description": "Enable Resource Locks"
+      }
+    },
+    "storagePEs": {
+      "type": "array",
+      "defaultValue": [
+        {
+          "type": "blob"
+        },
+        {
+          "type": "file"
+        },
+        {
+          "type": "queue"
+        },
+        {
+          "type": "table"
+        }
+      ],
+      "metadata": {
+        "description": "Private Endpoint Connection Array"
+      }
+    }
+  },
+  "variables": {
+    "tags": {}
+  },
+  "resources": [
+    {
+      "type": "Microsoft.Resources/resourceGroups",
+      "apiVersion": "2021-04-01",
+      "name": "[parameters('platformRgName')]",
+      "tags": "[variables('tags')]",
+      "location": "[parameters('location')]"
+    },
+    {
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2020-10-01",
+      "name": "deploy_Virtual_Network",
+      "resourceGroup": "[parameters('platformRgName')]",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "location": {
+            "value": "[parameters('location')]"
+          },
+          "addressPrefixes": {
+            "value": [
+              "[parameters('vnetAddressPrefix')]"
+            ]
+          },
+          "enableResourceLock": {
+            "value": "[parameters('enableResourceLock')]"
+          },
+          "subnets": {
+            "value": [
+              {
+                "name": "application-sn",
+                "networkSecurityGroup": "",
+                "routeTable": "",
+                "serviceEndpoints": [],
+                "serviceEndpointPolicies": [],
+                "privateEndpointNetworkPolicies": "Enabled",
+                "privateLinkServiceNetworkPolicies": "Enabled",
+                "delegations": [
+                  {
+                    "name": "webapp",
+                    "properties": {
+                      "serviceName": "Microsoft.Web/serverFarms"
+                    }
+                  }
+                ],
+                "addressPrefix": "[parameters('applicationSubnetAddressPrefix')]"
+              },
+              {
+                "name": "privateendpoint-sn",
+                "networkSecurityGroup": "",
+                "routeTable": "",
+                "serviceEndpoints": [],
+                "serviceEndpointPolicies": [],
+                "delegations": [],
+                "privateEndpointNetworkPolicies": "Disabled",
+                "privateLinkServiceNetworkPolicies": "Enabled",
+                "addressPrefix": "[parameters('privateEndpointSubnetAddressPrefix')]"
+              }
+            ]
+          },
+          "vnetName": {
+            "value": "[parameters('vnetName')]"
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.5.6.12127",
+              "templateHash": "5406582892950100567"
+            }
+          },
+          "parameters": {
+            "vnetName": {
+              "type": "string",
+              "metadata": {
+                "description": "The name of the Virtual Network"
+              }
+            },
+            "location": {
+              "type": "string",
+              "defaultValue": "[resourceGroup().location]",
+              "metadata": {
+                "description": "Location for resources to be created"
+              }
+            },
+            "addressPrefixes": {
+              "type": "array",
+              "metadata": {
+                "description": "The CIDR ranges for the Virtual Network"
+              }
+            },
+            "subnets": {
+              "type": "array",
+              "metadata": {
+                "description": "List of all subnet object definitions"
+              }
+            },
+            "dhcpOptions": {
+              "type": "object",
+              "defaultValue": {},
+              "metadata": {
+                "note": "Sample Input",
+                "dhcpOptions": {
+                  "dnsServers": [
+                    "10.0.6.4",
+                    "10.0.6.5",
+                    "10.1.2.3"
+                  ]
+                },
+                "description": "Object containing DNS servers for the virtual network. Leave blank if using Azure DNS."
+              }
+            },
+            "tags": {
+              "type": "object",
+              "defaultValue": {},
+              "metadata": {
+                "description": "Object containing resource tags."
+              }
+            },
+            "enableResourceLock": {
+              "type": "bool",
+              "metadata": {
+                "description": "Enable a Can Not Delete Resource Lock. Useful for production workloads."
+              }
+            },
+            "diagSettings": {
+              "type": "object",
+              "defaultValue": {},
+              "metadata": {
+                "description": "Object containing diagnostics settings. If not provided diagnostics will not be set."
+              }
+            }
+          },
+          "resources": [
+            {
+              "type": "Microsoft.Network/virtualNetworks",
+              "apiVersion": "2019-11-01",
+              "name": "[parameters('vnetName')]",
+              "location": "[parameters('location')]",
+              "tags": "[if(not(empty(parameters('tags'))), parameters('tags'), json('null'))]",
+              "properties": {
+                "copy": [
+                  {
+                    "name": "subnets",
+                    "count": "[length(parameters('subnets'))]",
+                    "input": {
+                      "name": "[parameters('subnets')[copyIndex('subnets')].name]",
+                      "properties": {
+                        "addressPrefix": "[parameters('subnets')[copyIndex('subnets')].addressPrefix]",
+                        "networkSecurityGroup": "[if(empty(parameters('subnets')[copyIndex('subnets')].networkSecurityGroup), json('null'), createObject('id', parameters('subnets')[copyIndex('subnets')].networkSecurityGroup))]",
+                        "routeTable": "[if(empty(parameters('subnets')[copyIndex('subnets')].routeTable), json('null'), createObject('id', parameters('subnets')[copyIndex('subnets')].routeTable))]",
+                        "privateEndpointNetworkPolicies": "[if(empty(parameters('subnets')[copyIndex('subnets')].privateEndpointNetworkPolicies), 'Enabled', parameters('subnets')[copyIndex('subnets')].privateEndpointNetworkPolicies)]",
+                        "privateLinkServiceNetworkPolicies": "[if(empty(parameters('subnets')[copyIndex('subnets')].privateLinkServiceNetworkPolicies), 'Enabled', parameters('subnets')[copyIndex('subnets')].privateLinkServiceNetworkPolicies)]",
+                        "serviceEndpoints": "[if(empty(parameters('subnets')[copyIndex('subnets')].serviceEndpoints), createArray(), parameters('subnets')[copyIndex('subnets')].serviceEndpoints)]",
+                        "serviceEndpointPolicies": "[if(empty(parameters('subnets')[copyIndex('subnets')].serviceEndpointPolicies), createArray(), parameters('subnets')[copyIndex('subnets')].serviceEndpointPolicies)]",
+                        "delegations": "[if(empty(parameters('subnets')[copyIndex('subnets')].delegations), createArray(), parameters('subnets')[copyIndex('subnets')].delegations)]"
+                      }
+                    }
+                  }
+                ],
+                "dhcpOptions": "[if(empty(parameters('dhcpOptions')), json('null'), parameters('dhcpOptions'))]",
+                "addressSpace": {
+                  "addressPrefixes": "[parameters('addressPrefixes')]"
+                }
+              }
+            },
+            {
+              "condition": "[not(empty(parameters('diagSettings')))]",
+              "type": "Microsoft.Insights/diagnosticSettings",
+              "apiVersion": "2021-05-01-preview",
+              "scope": "[format('Microsoft.Network/virtualNetworks/{0}', parameters('vnetName'))]",
+              "name": "[if(empty(parameters('diagSettings')), 'dummy-value', parameters('diagSettings').name)]",
+              "properties": {
+                "workspaceId": "[if(empty(parameters('diagSettings').workspaceId), json('null'), parameters('diagSettings').workspaceId)]",
+                "storageAccountId": "[if(empty(parameters('diagSettings').storageAccountId), json('null'), parameters('diagSettings').storageAccountId)]",
+                "eventHubAuthorizationRuleId": "[if(empty(parameters('diagSettings').eventHubAuthorizationRuleId), json('null'), parameters('diagSettings').eventHubAuthorizationRuleId)]",
+                "eventHubName": "[if(empty(parameters('diagSettings').eventHubName), json('null'), parameters('diagSettings').eventHubName)]",
+                "logs": [
+                  {
+                    "category": "VMProtectionAlerts",
+                    "enabled": "[parameters('diagSettings').enableLogs]",
+                    "retentionPolicy": "[if(empty(parameters('diagSettings').retentionPolicy), json('null'), parameters('diagSettings').retentionPolicy)]"
+                  }
+                ],
+                "metrics": [
+                  {
+                    "category": "AllMetrics",
+                    "enabled": "[parameters('diagSettings').enableMetrics]",
+                    "retentionPolicy": "[if(empty(parameters('diagSettings').retentionPolicy), json('null'), parameters('diagSettings').retentionPolicy)]"
+                  }
+                ]
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.Network/virtualNetworks', parameters('vnetName'))]"
+              ]
+            },
+            {
+              "condition": "[parameters('enableResourceLock')]",
+              "type": "Microsoft.Authorization/locks",
+              "apiVersion": "2016-09-01",
+              "scope": "[format('Microsoft.Network/virtualNetworks/{0}', parameters('vnetName'))]",
+              "name": "[format('{0}-delete-lock', parameters('vnetName'))]",
+              "properties": {
+                "level": "CanNotDelete",
+                "notes": "Enabled as part of IaC Deployment"
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.Network/virtualNetworks', parameters('vnetName'))]"
+              ]
+            }
+          ],
+          "outputs": {
+            "name": {
+              "type": "string",
+              "value": "[parameters('vnetName')]"
+            },
+            "id": {
+              "type": "string",
+              "value": "[resourceId('Microsoft.Network/virtualNetworks', parameters('vnetName'))]"
+            },
+            "subnets": {
+              "type": "array",
+              "copy": {
+                "count": "[length(parameters('subnets'))]",
+                "input": {
+                  "name": "[reference(resourceId('Microsoft.Network/virtualNetworks', parameters('vnetName'))).subnets[copyIndex()].name]",
+                  "id": "[reference(resourceId('Microsoft.Network/virtualNetworks', parameters('vnetName'))).subnets[copyIndex()].id]"
+                }
+              }
+            }
+          }
+        }
+      },
+      "dependsOn": [
+        "[subscriptionResourceId('Microsoft.Resources/resourceGroups', parameters('platformRgName'))]"
+      ]
+    },
+    {
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2020-10-01",
+      "name": "deploy_Private_DNS",
+      "resourceGroup": "[parameters('platformRgName')]",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "dnsZoneList": {
+            "value": "[parameters('dnsZoneList')]"
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.5.6.12127",
+              "templateHash": "204603260879328592"
+            }
+          },
+          "parameters": {
+            "dnsZoneList": {
+              "type": "array",
+              "defaultValue": [
+                "privatelink.blob.core.windows.net",
+                "privatelink.table.core.windows.net",
+                "privatelink.queue.core.windows.net",
+                "privatelink.file.core.windows.net"
+              ],
+              "metadata": {
+                "description": "Array of Private DNS Zones to create"
+              }
+            }
+          },
+          "resources": [
+            {
+              "copy": {
+                "name": "dnsZones",
+                "count": "[length(parameters('dnsZoneList'))]"
+              },
+              "type": "Microsoft.Network/privateDnsZones",
+              "apiVersion": "2020-06-01",
+              "name": "[parameters('dnsZoneList')[copyIndex()]]",
+              "location": "global",
+              "properties": {}
+            }
+          ]
+        }
+      },
+      "dependsOn": [
+        "[subscriptionResourceId('Microsoft.Resources/resourceGroups', parameters('platformRgName'))]",
+        "[extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('platformRgName')), 'Microsoft.Resources/deployments', 'deploy_Virtual_Network')]"
+      ]
+    },
+    {
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2020-10-01",
+      "name": "deploy_Private_DNS_Link",
+      "resourceGroup": "[parameters('platformRgName')]",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "dnsZoneList": {
+            "value": "[parameters('dnsZoneList')]"
+          },
+          "linkPrefix": {
+            "value": "hub-"
+          },
+          "vnetId": {
+            "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('platformRgName')), 'Microsoft.Resources/deployments', 'deploy_Virtual_Network')).outputs.id.value]"
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.5.6.12127",
+              "templateHash": "13737772650647404458"
+            }
+          },
+          "parameters": {
+            "dnsZoneList": {
+              "type": "array",
+              "metadata": {
+                "description": "Array of Private DNS Zones to link"
+              }
+            },
+            "linkPrefix": {
+              "type": "string",
+              "metadata": {
+                "description": "Prefix to use in DNS Zone to VNET link"
+              }
+            },
+            "vnetId": {
+              "type": "string",
+              "metadata": {
+                "description": "ResourceId of Virtual Network"
+              }
+            },
+            "registrationEnabled": {
+              "type": "bool",
+              "defaultValue": false,
+              "metadata": {
+                "description": "Is auto-registration of virtual machine records in the virtual network in the Private DNS zone enabled?"
+              }
+            },
+            "tags": {
+              "type": "object",
+              "defaultValue": {},
+              "metadata": {
+                "Purpose": "Sample Bicep Template",
+                "Environment": "Development",
+                "Owner": "sample.user@arinco.com.au",
+                "description": "Object containing resource tags."
+              }
+            }
+          },
+          "resources": [
+            {
+              "copy": {
+                "name": "dnsZonesLink",
+                "count": "[length(parameters('dnsZoneList'))]"
+              },
+              "type": "Microsoft.Network/privateDnsZones/virtualNetworkLinks",
+              "apiVersion": "2020-06-01",
+              "name": "[format('{0}/{1}', parameters('dnsZoneList')[copyIndex()], format('{0}{1}', parameters('linkPrefix'), parameters('dnsZoneList')[copyIndex()]))]",
+              "location": "global",
+              "tags": "[parameters('tags')]",
+              "properties": {
+                "virtualNetwork": {
+                  "id": "[parameters('vnetId')]"
+                },
+                "registrationEnabled": "[parameters('registrationEnabled')]"
+              }
+            }
+          ]
+        }
+      },
+      "dependsOn": [
+        "[extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('platformRgName')), 'Microsoft.Resources/deployments', 'deploy_Private_DNS')]",
+        "[subscriptionResourceId('Microsoft.Resources/resourceGroups', parameters('platformRgName'))]",
+        "[extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('platformRgName')), 'Microsoft.Resources/deployments', 'deploy_Virtual_Network')]"
+      ]
+    },
+    {
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2020-10-01",
+      "name": "deploy_Storage_Account",
+      "resourceGroup": "[parameters('platformRgName')]",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "location": {
+            "value": "[parameters('location')]"
+          },
+          "storageAccountName": {
+            "value": "[parameters('storageAccountName')]"
+          },
+          "storageSku": {
+            "value": "Standard_LRS"
+          },
+          "networkAclsDefaultAction": {
+            "value": "Deny"
+          },
+          "fileShareName": {
+            "value": "functioncontentshare"
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.5.6.12127",
+              "templateHash": "2685035303478104715"
+            }
+          },
+          "parameters": {
+            "storageAccountName": {
+              "type": "string",
+              "metadata": {
+                "description": "Storage account name"
+              }
+            },
+            "location": {
+              "type": "string",
+              "defaultValue": "[resourceGroup().location]",
+              "metadata": {
+                "description": "Location of the resource."
+              }
+            },
+            "storageSku": {
+              "type": "string",
+              "allowedValues": [
+                "Standard_LRS",
+                "Standard_GRS",
+                "Standard_RAGRS",
+                "Standard_ZRS",
+                "Premium_LRS",
+                "Premium_ZRS",
+                "Standard_GZRS",
+                "Standard_RAGZRS"
+              ],
+              "metadata": {
+                "description": "Storage account sku"
+              }
+            },
+            "storageTier": {
+              "type": "string",
+              "defaultValue": "Hot",
+              "allowedValues": [
+                "Hot",
+                "Cool"
+              ],
+              "metadata": {
+                "description": "Storage account access tier, Hot for frequently accessed data or Cool for infreqently accessed data"
+              }
+            },
+            "allowSharedKeyAccess": {
+              "type": "bool",
+              "defaultValue": true,
+              "metadata": {
+                "description": "Allow the use of SAS Keys to access storage account"
+              }
+            },
+            "allowBlobPublicAccess": {
+              "type": "bool",
+              "defaultValue": false,
+              "metadata": {
+                "description": "Whether anonymous blob access is allowed. Recommend this to be false unless necessary (e.g. static assets for web)"
+              }
+            },
+            "enableDataProtection": {
+              "type": "bool",
+              "defaultValue": true,
+              "metadata": {
+                "description": "Enable/Disable soft delete Data Protection features"
+              }
+            },
+            "blobDeleteRetentionDays": {
+              "type": "int",
+              "defaultValue": 30,
+              "maxValue": 365,
+              "minValue": 1,
+              "metadata": {
+                "description": "Amount of days the soft deleted blob data is stored and available for recovery"
+              }
+            },
+            "containerDeleteRetentionDays": {
+              "type": "int",
+              "defaultValue": 30,
+              "maxValue": 365,
+              "minValue": 1,
+              "metadata": {
+                "description": "Amount of days the soft deleted container is stored and available for recovery"
+              }
+            },
+            "shareDeleteRetentionDays": {
+              "type": "int",
+              "defaultValue": 30,
+              "maxValue": 365,
+              "minValue": 1,
+              "metadata": {
+                "description": "Amount of days the soft deleted File Share is stored and available for recovery"
+              }
+            },
+            "networkAclsBypass": {
+              "type": "string",
+              "defaultValue": "AzureServices",
+              "allowedValues": [
+                "AzureServices",
+                "None"
+              ],
+              "metadata": {
+                "description": "Whether to allow Azure Services to bypass Network Acls."
+              }
+            },
+            "networkAclsDefaultAction": {
+              "type": "string",
+              "defaultValue": "Allow",
+              "allowedValues": [
+                "Allow",
+                "Deny"
+              ],
+              "metadata": {
+                "description": "Set to Deny if you want to enable the firewall."
+              }
+            },
+            "ipRules": {
+              "type": "array",
+              "defaultValue": [],
+              "metadata": {
+                "note": "Sample input",
+                "ipRules": [
+                  {
+                    "action": "Allow",
+                    "value": "CIDR Range"
+                  }
+                ],
+                "description": "An array of CIDR ranges for Storage Network ACLs."
+              }
+            },
+            "resourceAccessRules": {
+              "type": "array",
+              "defaultValue": [],
+              "metadata": {
+                "note": "Sample input",
+                "resourceAccessRules": [
+                  {
+                    "resourceId": "/subscriptions/xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx/resourcegroups/example-dev-rg/providers/microsoft.operationalinsights/workspaces/example-dev-log",
+                    "tenantId": "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+                  }
+                ],
+                "description": "An array of CIDR ranges for Storage Network ACLs."
+              }
+            },
+            "virtualNetworkRules": {
+              "type": "array",
+              "defaultValue": [],
+              "metadata": {
+                "note": "Sample input",
+                "virtualNetworkRules": [
+                  {
+                    "action": "Allow",
+                    "id": "/subscriptions/xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx/resourceGroups/example-dev-rg/providers/Microsoft.Network/virtualNetworks/example-dev-vnet/subnets/examplesubnet"
+                  }
+                ],
+                "description": "An array of CIDR ranges for Storage Network ACLs."
+              }
+            },
+            "tags": {
+              "type": "object",
+              "defaultValue": {},
+              "metadata": {
+                "description": "Object containing resource tags."
+              }
+            },
+            "enableResourceLock": {
+              "type": "bool",
+              "defaultValue": false,
+              "metadata": {
+                "description": "Enable a Can Not Delete Resource Lock.  Useful for production workloads."
+              }
+            },
+            "diagSettings": {
+              "type": "object",
+              "defaultValue": {},
+              "metadata": {
+                "description": "Object containing diagnostics settings. If not provided diagnostics will not be set."
+              }
+            },
+            "fileShareName": {
+              "type": "string",
+              "defaultValue": "",
+              "metadata": {
+                "description": "Name of the Resource for which to create the Private Endpoint"
+              }
+            },
+            "shareQuota": {
+              "type": "int",
+              "defaultValue": 1024,
+              "metadata": {
+                "description": "Share Quota"
+              }
+            },
+            "enabledProtocols": {
+              "type": "string",
+              "defaultValue": "SMB",
+              "allowedValues": [
+                "NFS",
+                "SMB",
+                "null"
+              ],
+              "metadata": {
+                "description": "Enabled Protocols"
+              }
+            },
+            "accessTier": {
+              "type": "string",
+              "defaultValue": "Premium",
+              "allowedValues": [
+                "Cool",
+                "Hot",
+                "Premium",
+                "TransactionOptimized"
+              ],
+              "metadata": {
+                "description": "Access Tier Details"
+              }
+            }
+          },
+          "variables": {
+            "fileShare": "[format('{0}/default/{1}', parameters('storageAccountName'), parameters('fileShareName'))]"
+          },
+          "resources": [
+            {
+              "type": "Microsoft.Storage/storageAccounts",
+              "apiVersion": "2021-04-01",
+              "name": "[parameters('storageAccountName')]",
+              "location": "[parameters('location')]",
+              "tags": "[if(not(empty(parameters('tags'))), parameters('tags'), json('null'))]",
+              "sku": {
+                "name": "[parameters('storageSku')]"
+              },
+              "kind": "StorageV2",
+              "properties": {
+                "accessTier": "[parameters('storageTier')]",
+                "supportsHttpsTrafficOnly": true,
+                "allowSharedKeyAccess": "[parameters('allowSharedKeyAccess')]",
+                "encryption": {
+                  "keySource": "Microsoft.Storage",
+                  "services": {
+                    "blob": {
+                      "enabled": true
+                    },
+                    "file": {
+                      "enabled": true
+                    },
+                    "queue": {
+                      "enabled": true
+                    },
+                    "table": {
+                      "enabled": true
+                    }
+                  }
+                },
+                "networkAcls": {
+                  "bypass": "[parameters('networkAclsBypass')]",
+                  "defaultAction": "[parameters('networkAclsDefaultAction')]",
+                  "ipRules": "[parameters('ipRules')]",
+                  "resourceAccessRules": "[parameters('resourceAccessRules')]",
+                  "virtualNetworkRules": "[parameters('virtualNetworkRules')]"
+                },
+                "minimumTlsVersion": "TLS1_2",
+                "allowBlobPublicAccess": "[parameters('allowBlobPublicAccess')]"
+              }
+            },
+            {
+              "type": "Microsoft.Storage/storageAccounts/blobServices",
+              "apiVersion": "2021-04-01",
+              "name": "[format('{0}/{1}', parameters('storageAccountName'), 'default')]",
+              "properties": {
+                "deleteRetentionPolicy": {
+                  "enabled": "[parameters('enableDataProtection')]",
+                  "days": "[parameters('blobDeleteRetentionDays')]"
+                },
+                "containerDeleteRetentionPolicy": {
+                  "enabled": "[parameters('enableDataProtection')]",
+                  "days": "[parameters('containerDeleteRetentionDays')]"
+                }
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccountName'))]"
+              ]
+            },
+            {
+              "type": "Microsoft.Storage/storageAccounts/fileServices",
+              "apiVersion": "2021-04-01",
+              "name": "[format('{0}/{1}', parameters('storageAccountName'), 'default')]",
+              "properties": {
+                "shareDeleteRetentionPolicy": {
+                  "enabled": "[parameters('enableDataProtection')]",
+                  "days": "[parameters('shareDeleteRetentionDays')]"
+                }
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccountName'))]"
+              ]
+            },
+            {
+              "type": "Microsoft.Storage/storageAccounts/queueServices",
+              "apiVersion": "2021-04-01",
+              "name": "[format('{0}/{1}', parameters('storageAccountName'), 'default')]",
+              "properties": {},
+              "dependsOn": [
+                "[resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccountName'))]"
+              ]
+            },
+            {
+              "type": "Microsoft.Storage/storageAccounts/tableServices",
+              "apiVersion": "2021-04-01",
+              "name": "[format('{0}/{1}', parameters('storageAccountName'), 'default')]",
+              "properties": {},
+              "dependsOn": [
+                "[resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccountName'))]"
+              ]
+            },
+            {
+              "condition": "[not(equals(parameters('fileShareName'), ''))]",
+              "type": "Microsoft.Storage/storageAccounts/fileServices/shares",
+              "apiVersion": "2019-04-01",
+              "name": "[variables('fileShare')]",
+              "properties": {
+                "metadata": {},
+                "shareQuota": "[parameters('shareQuota')]"
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccountName'))]"
+              ]
+            },
+            {
+              "condition": "[not(empty(parameters('diagSettings')))]",
+              "type": "Microsoft.Insights/diagnosticSettings",
+              "apiVersion": "2021-05-01-preview",
+              "scope": "[format('Microsoft.Storage/storageAccounts/{0}', parameters('storageAccountName'))]",
+              "name": "[if(empty(parameters('diagSettings')), 'dummy-value', parameters('diagSettings').name)]",
+              "properties": {
+                "workspaceId": "[if(empty(parameters('diagSettings').workspaceId), json('null'), parameters('diagSettings').workspaceId)]",
+                "storageAccountId": "[if(empty(parameters('diagSettings').storageAccountId), json('null'), parameters('diagSettings').storageAccountId)]",
+                "eventHubAuthorizationRuleId": "[if(empty(parameters('diagSettings').eventHubAuthorizationRuleId), json('null'), parameters('diagSettings').eventHubAuthorizationRuleId)]",
+                "eventHubName": "[if(empty(parameters('diagSettings').eventHubName), json('null'), parameters('diagSettings').eventHubName)]",
+                "metrics": [
+                  {
+                    "category": "Transaction",
+                    "enabled": "[parameters('diagSettings').enableMetrics]",
+                    "retentionPolicy": "[if(empty(parameters('diagSettings').retentionPolicy), json('null'), parameters('diagSettings').retentionPolicy)]"
+                  }
+                ]
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccountName'))]"
+              ]
+            },
+            {
+              "condition": "[not(empty(parameters('diagSettings')))]",
+              "type": "Microsoft.Insights/diagnosticSettings",
+              "apiVersion": "2021-05-01-preview",
+              "scope": "[format('Microsoft.Storage/storageAccounts/{0}/blobServices/{1}', parameters('storageAccountName'), 'default')]",
+              "name": "[if(empty(parameters('diagSettings')), 'dummy-value', parameters('diagSettings').name)]",
+              "properties": {
+                "workspaceId": "[if(empty(parameters('diagSettings').workspaceId), json('null'), parameters('diagSettings').workspaceId)]",
+                "storageAccountId": "[if(empty(parameters('diagSettings').storageAccountId), json('null'), parameters('diagSettings').storageAccountId)]",
+                "eventHubAuthorizationRuleId": "[if(empty(parameters('diagSettings').eventHubAuthorizationRuleId), json('null'), parameters('diagSettings').eventHubAuthorizationRuleId)]",
+                "eventHubName": "[if(empty(parameters('diagSettings').eventHubName), json('null'), parameters('diagSettings').eventHubName)]",
+                "logs": [
+                  {
+                    "category": "StorageRead",
+                    "enabled": "[parameters('diagSettings').enableLogs]",
+                    "retentionPolicy": "[if(empty(parameters('diagSettings').retentionPolicy), json('null'), parameters('diagSettings').retentionPolicy)]"
+                  },
+                  {
+                    "category": "StorageWrite",
+                    "enabled": "[parameters('diagSettings').enableLogs]",
+                    "retentionPolicy": "[if(empty(parameters('diagSettings').retentionPolicy), json('null'), parameters('diagSettings').retentionPolicy)]"
+                  },
+                  {
+                    "category": "StorageDelete",
+                    "enabled": "[parameters('diagSettings').enableLogs]",
+                    "retentionPolicy": "[if(empty(parameters('diagSettings').retentionPolicy), json('null'), parameters('diagSettings').retentionPolicy)]"
+                  }
+                ]
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.Storage/storageAccounts/blobServices', parameters('storageAccountName'), 'default')]"
+              ]
+            },
+            {
+              "condition": "[not(empty(parameters('diagSettings')))]",
+              "type": "Microsoft.Insights/diagnosticSettings",
+              "apiVersion": "2021-05-01-preview",
+              "scope": "[format('Microsoft.Storage/storageAccounts/{0}/fileServices/{1}', parameters('storageAccountName'), 'default')]",
+              "name": "[if(empty(parameters('diagSettings')), 'dummy-value', parameters('diagSettings').name)]",
+              "properties": {
+                "workspaceId": "[if(empty(parameters('diagSettings').workspaceId), json('null'), parameters('diagSettings').workspaceId)]",
+                "storageAccountId": "[if(empty(parameters('diagSettings').storageAccountId), json('null'), parameters('diagSettings').storageAccountId)]",
+                "eventHubAuthorizationRuleId": "[if(empty(parameters('diagSettings').eventHubAuthorizationRuleId), json('null'), parameters('diagSettings').eventHubAuthorizationRuleId)]",
+                "eventHubName": "[if(empty(parameters('diagSettings').eventHubName), json('null'), parameters('diagSettings').eventHubName)]",
+                "logs": [
+                  {
+                    "category": "StorageRead",
+                    "enabled": "[parameters('diagSettings').enableLogs]",
+                    "retentionPolicy": "[if(empty(parameters('diagSettings').retentionPolicy), json('null'), parameters('diagSettings').retentionPolicy)]"
+                  },
+                  {
+                    "category": "StorageWrite",
+                    "enabled": "[parameters('diagSettings').enableLogs]",
+                    "retentionPolicy": "[if(empty(parameters('diagSettings').retentionPolicy), json('null'), parameters('diagSettings').retentionPolicy)]"
+                  },
+                  {
+                    "category": "StorageDelete",
+                    "enabled": "[parameters('diagSettings').enableLogs]",
+                    "retentionPolicy": "[if(empty(parameters('diagSettings').retentionPolicy), json('null'), parameters('diagSettings').retentionPolicy)]"
+                  }
+                ]
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.Storage/storageAccounts/fileServices', parameters('storageAccountName'), 'default')]"
+              ]
+            },
+            {
+              "condition": "[not(empty(parameters('diagSettings')))]",
+              "type": "Microsoft.Insights/diagnosticSettings",
+              "apiVersion": "2021-05-01-preview",
+              "scope": "[format('Microsoft.Storage/storageAccounts/{0}/queueServices/{1}', parameters('storageAccountName'), 'default')]",
+              "name": "[if(empty(parameters('diagSettings')), 'dummy-value', parameters('diagSettings').name)]",
+              "properties": {
+                "workspaceId": "[if(empty(parameters('diagSettings').workspaceId), json('null'), parameters('diagSettings').workspaceId)]",
+                "storageAccountId": "[if(empty(parameters('diagSettings').storageAccountId), json('null'), parameters('diagSettings').storageAccountId)]",
+                "eventHubAuthorizationRuleId": "[if(empty(parameters('diagSettings').eventHubAuthorizationRuleId), json('null'), parameters('diagSettings').eventHubAuthorizationRuleId)]",
+                "eventHubName": "[if(empty(parameters('diagSettings').eventHubName), json('null'), parameters('diagSettings').eventHubName)]",
+                "logs": [
+                  {
+                    "category": "StorageRead",
+                    "enabled": "[parameters('diagSettings').enableLogs]",
+                    "retentionPolicy": "[if(empty(parameters('diagSettings').retentionPolicy), json('null'), parameters('diagSettings').retentionPolicy)]"
+                  },
+                  {
+                    "category": "StorageWrite",
+                    "enabled": "[parameters('diagSettings').enableLogs]",
+                    "retentionPolicy": "[if(empty(parameters('diagSettings').retentionPolicy), json('null'), parameters('diagSettings').retentionPolicy)]"
+                  },
+                  {
+                    "category": "StorageDelete",
+                    "enabled": "[parameters('diagSettings').enableLogs]",
+                    "retentionPolicy": "[if(empty(parameters('diagSettings').retentionPolicy), json('null'), parameters('diagSettings').retentionPolicy)]"
+                  }
+                ]
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.Storage/storageAccounts/queueServices', parameters('storageAccountName'), 'default')]"
+              ]
+            },
+            {
+              "condition": "[not(empty(parameters('diagSettings')))]",
+              "type": "Microsoft.Insights/diagnosticSettings",
+              "apiVersion": "2021-05-01-preview",
+              "scope": "[format('Microsoft.Storage/storageAccounts/{0}/tableServices/{1}', parameters('storageAccountName'), 'default')]",
+              "name": "[if(empty(parameters('diagSettings')), 'dummy-value', parameters('diagSettings').name)]",
+              "properties": {
+                "workspaceId": "[if(empty(parameters('diagSettings').workspaceId), json('null'), parameters('diagSettings').workspaceId)]",
+                "storageAccountId": "[if(empty(parameters('diagSettings').storageAccountId), json('null'), parameters('diagSettings').storageAccountId)]",
+                "eventHubAuthorizationRuleId": "[if(empty(parameters('diagSettings').eventHubAuthorizationRuleId), json('null'), parameters('diagSettings').eventHubAuthorizationRuleId)]",
+                "eventHubName": "[if(empty(parameters('diagSettings').eventHubName), json('null'), parameters('diagSettings').eventHubName)]",
+                "logs": [
+                  {
+                    "category": "StorageRead",
+                    "enabled": "[parameters('diagSettings').enableLogs]",
+                    "retentionPolicy": "[if(empty(parameters('diagSettings').retentionPolicy), json('null'), parameters('diagSettings').retentionPolicy)]"
+                  },
+                  {
+                    "category": "StorageWrite",
+                    "enabled": "[parameters('diagSettings').enableLogs]",
+                    "retentionPolicy": "[if(empty(parameters('diagSettings').retentionPolicy), json('null'), parameters('diagSettings').retentionPolicy)]"
+                  },
+                  {
+                    "category": "StorageDelete",
+                    "enabled": "[parameters('diagSettings').enableLogs]",
+                    "retentionPolicy": "[if(empty(parameters('diagSettings').retentionPolicy), json('null'), parameters('diagSettings').retentionPolicy)]"
+                  }
+                ]
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.Storage/storageAccounts/tableServices', parameters('storageAccountName'), 'default')]"
+              ]
+            },
+            {
+              "condition": "[parameters('enableResourceLock')]",
+              "type": "Microsoft.Authorization/locks",
+              "apiVersion": "2016-09-01",
+              "scope": "[format('Microsoft.Storage/storageAccounts/{0}', parameters('storageAccountName'))]",
+              "name": "[format('{0}-delete-lock', parameters('storageAccountName'))]",
+              "properties": {
+                "level": "CanNotDelete",
+                "notes": "Enabled as part of IaC Deployment"
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccountName'))]"
+              ]
+            }
+          ],
+          "outputs": {
+            "name": {
+              "type": "string",
+              "value": "[parameters('storageAccountName')]"
+            },
+            "id": {
+              "type": "string",
+              "value": "[resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccountName'))]"
+            }
+          }
+        }
+      },
+      "dependsOn": [
+        "[subscriptionResourceId('Microsoft.Resources/resourceGroups', parameters('platformRgName'))]",
+        "[extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('platformRgName')), 'Microsoft.Resources/deployments', 'deploy_Virtual_Network')]"
+      ]
+    },
+    {
+      "copy": {
+        "name": "storageAccountPE",
+        "count": "[length(parameters('storagePEs'))]"
+      },
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2020-10-01",
+      "name": "[format('deploy_st_pe_{0}', parameters('storagePEs')[copyIndex()].type)]",
+      "resourceGroup": "[parameters('platformRgName')]",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "location": {
+            "value": "[parameters('location')]"
+          },
+          "dnsZoneResourceGroup": {
+            "value": "[parameters('platformRgName')]"
+          },
+          "dnsZoneSubscriptionId": {
+            "value": "[subscription().subscriptionId]"
+          },
+          "id": {
+            "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('platformRgName')), 'Microsoft.Resources/deployments', 'deploy_Storage_Account')).outputs.id.value]"
+          },
+          "resourceName": {
+            "value": "[parameters('storageAccountName')]"
+          },
+          "subnetId": {
+            "value": "[format('{0}/subnets/privateendpoint-sn', reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('platformRgName')), 'Microsoft.Resources/deployments', 'deploy_Virtual_Network')).outputs.id.value)]"
+          },
+          "type": {
+            "value": "[parameters('storagePEs')[copyIndex()].type]"
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.5.6.12127",
+              "templateHash": "13650976497328256858"
+            }
+          },
+          "parameters": {
+            "resourceName": {
+              "type": "string",
+              "metadata": {
+                "description": "Name of the Resource for which to create the Private Endpoint"
+              }
+            },
+            "id": {
+              "type": "string",
+              "metadata": {
+                "description": "Resource Id of the Resource for which to create the Private Endpoint"
+              }
+            },
+            "type": {
+              "type": "string",
+              "allowedValues": [
+                "blob",
+                "table",
+                "queue",
+                "file",
+                "web",
+                "dfs"
+              ],
+              "metadata": {
+                "description": "Storage Account support various Private Endpoint types"
+              }
+            },
+            "location": {
+              "type": "string",
+              "defaultValue": "[resourceGroup().location]",
+              "metadata": {
+                "description": "Location of the resource."
+              }
+            },
+            "subnetId": {
+              "type": "string",
+              "metadata": {
+                "description": "Resource ID of the subnet that will host Private Endpoint."
+              }
+            },
+            "dnsZoneResourceGroup": {
+              "type": "string",
+              "metadata": {
+                "description": "Resource Group of the Private DNS Zone Group to host Private Endpoint entry"
+              }
+            },
+            "dnsZoneSubscriptionId": {
+              "type": "string",
+              "metadata": {
+                "description": "SubscriptionId of the Private DNS Zone Group to host Private Endpoint entry"
+              }
+            }
+          },
+          "resources": [
+            {
+              "type": "Microsoft.Network/privateEndpoints",
+              "apiVersion": "2020-06-01",
+              "name": "[format('{0}-{1}-pe', parameters('resourceName'), parameters('type'))]",
+              "location": "[parameters('location')]",
+              "properties": {
+                "subnet": {
+                  "id": "[parameters('subnetId')]"
+                },
+                "privateLinkServiceConnections": [
+                  {
+                    "name": "[format('{0}-{1}-plink', parameters('resourceName'), parameters('type'))]",
+                    "properties": {
+                      "privateLinkServiceId": "[parameters('id')]",
+                      "groupIds": [
+                        "[parameters('type')]"
+                      ]
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "type": "Microsoft.Network/privateEndpoints/privateDnsZoneGroups",
+              "apiVersion": "2020-06-01",
+              "name": "[format('{0}/default', format('{0}-{1}-pe', parameters('resourceName'), parameters('type')))]",
+              "properties": {
+                "privateDnsZoneConfigs": [
+                  {
+                    "name": "[format('privatelink.{0}.core.windows.net', parameters('type'))]",
+                    "properties": {
+                      "privateDnsZoneId": "[resourceId(parameters('dnsZoneSubscriptionId'), parameters('dnsZoneResourceGroup'), 'Microsoft.Network/privateDnsZones', format('privatelink.{0}.core.windows.net', parameters('type')))]"
+                    }
+                  }
+                ]
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.Network/privateEndpoints', format('{0}-{1}-pe', parameters('resourceName'), parameters('type')))]"
+              ]
+            }
+          ],
+          "outputs": {
+            "name": {
+              "type": "string",
+              "value": "[format('{0}-{1}-pe', parameters('resourceName'), parameters('type'))]"
+            },
+            "id": {
+              "type": "string",
+              "value": "[resourceId('Microsoft.Network/privateEndpoints', format('{0}-{1}-pe', parameters('resourceName'), parameters('type')))]"
+            }
+          }
+        }
+      },
+      "dependsOn": [
+        "[subscriptionResourceId('Microsoft.Resources/resourceGroups', parameters('platformRgName'))]",
+        "[extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('platformRgName')), 'Microsoft.Resources/deployments', 'deploy_Storage_Account')]",
+        "[extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('platformRgName')), 'Microsoft.Resources/deployments', 'deploy_Virtual_Network')]"
+      ]
+    },
+    {
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2020-10-01",
+      "name": "deploy_logAnalytics",
+      "resourceGroup": "[parameters('platformRgName')]",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "location": {
+            "value": "[parameters('location')]"
+          },
+          "workspaceName": {
+            "value": "[parameters('workspaceName')]"
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.5.6.12127",
+              "templateHash": "5438306633381680295"
+            }
+          },
+          "parameters": {
+            "workspaceName": {
+              "type": "string",
+              "metadata": {
+                "description": "The name of the resource."
+              }
+            },
+            "location": {
+              "type": "string",
+              "defaultValue": "[resourceGroup().location]",
+              "metadata": {
+                "description": "Location of the resource."
+              }
+            },
+            "retentionInDays": {
+              "type": "int",
+              "defaultValue": 90,
+              "maxValue": 730,
+              "minValue": 7,
+              "metadata": {
+                "description": "Data retention period."
+              }
+            },
+            "capacityReservation": {
+              "type": "int",
+              "defaultValue": 0,
+              "metadata": {
+                "description": "Capacity based reservation for data ingestion in GB. Must be in multiples of 100. Leave as 0 if no reservation."
+              }
+            },
+            "solutions": {
+              "type": "array",
+              "defaultValue": [],
+              "metadata": {
+                "description": "Solutions to add to workspace",
+                "name": "Solution name",
+                "product": "Product name",
+                "publisher": "Publisher name",
+                "promotionCode": "Promotion code (if applicable)"
+              }
+            },
+            "automationAccountName": {
+              "type": "string",
+              "defaultValue": "",
+              "metadata": {
+                "description": "Name of automation account to link to workspace"
+              }
+            },
+            "dataSources": {
+              "type": "array",
+              "defaultValue": [],
+              "metadata": {
+                "description": "Datasources to add to workspace",
+                "name": "Data source name",
+                "kind": "Data source kind",
+                "properties": "Object containing data source properties"
+              }
+            },
+            "tags": {
+              "type": "object",
+              "defaultValue": {},
+              "metadata": {
+                "description": "Object containing resource tags.",
+                "tagKey": "tag value"
+              }
+            },
+            "enableResourceLock": {
+              "type": "bool",
+              "defaultValue": false,
+              "metadata": {
+                "description": "Enable a Can Not Delete Resource Lock.  Useful for production workloads."
+              }
+            },
+            "diagSettings": {
+              "type": "object",
+              "defaultValue": {},
+              "metadata": {
+                "description": "Object containing diagnostics settings. If not provided diagnostics will not be set.",
+                "name": "Diagnostic settings name",
+                "workspaceId": "Log analytics resource id",
+                "storageAccountId": "Storage account resource id",
+                "eventHubAuthorizationRuleId": "EventHub authorization rule id",
+                "eventHubName": "EventHub name",
+                "enableLogs": "Enable logs",
+                "enableMetrics": "Enable metrics",
+                "retentionPolicy": {
+                  "days": "Number of days to keep data",
+                  "enabled": "Enable retention policy"
+                }
+              }
+            }
+          },
+          "resources": [
+            {
+              "type": "Microsoft.OperationalInsights/workspaces",
+              "apiVersion": "2020-08-01",
+              "name": "[parameters('workspaceName')]",
+              "location": "[parameters('location')]",
+              "tags": "[if(not(empty(parameters('tags'))), parameters('tags'), json('null'))]",
+              "properties": {
+                "sku": {
+                  "name": "PerGB2018",
+                  "capacityReservationLevel": "[if(equals(parameters('capacityReservation'), 0), json('null'), parameters('capacityReservation'))]"
+                },
+                "retentionInDays": "[parameters('retentionInDays')]",
+                "features": {
+                  "searchVersion": 1,
+                  "enableLogAccessUsingOnlyResourcePermissions": true
+                }
+              }
+            },
+            {
+              "condition": "[not(empty(parameters('automationAccountName')))]",
+              "type": "Microsoft.OperationalInsights/workspaces/linkedServices",
+              "apiVersion": "2020-08-01",
+              "name": "[format('{0}/Automation', parameters('workspaceName'))]",
+              "properties": {
+                "resourceId": "[resourceId('Microsoft.Automation/automationAccounts', parameters('automationAccountName'))]"
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.OperationalInsights/workspaces', parameters('workspaceName'))]"
+              ]
+            },
+            {
+              "copy": {
+                "name": "logAnalyticsSolutions",
+                "count": "[length(parameters('solutions'))]"
+              },
+              "type": "Microsoft.OperationsManagement/solutions",
+              "apiVersion": "2015-11-01-preview",
+              "name": "[format('{0}({1})', parameters('solutions')[copyIndex()].name, parameters('workspaceName'))]",
+              "location": "[parameters('location')]",
+              "properties": {
+                "workspaceResourceId": "[resourceId('Microsoft.OperationalInsights/workspaces', parameters('workspaceName'))]"
+              },
+              "plan": {
+                "name": "[format('{0}({1})', parameters('solutions')[copyIndex()].name, parameters('workspaceName'))]",
+                "product": "[parameters('solutions')[copyIndex()].product]",
+                "publisher": "[parameters('solutions')[copyIndex()].publisher]",
+                "promotionCode": "[parameters('solutions')[copyIndex()].promotionCode]"
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.OperationalInsights/workspaces', parameters('workspaceName'))]"
+              ]
+            },
+            {
+              "copy": {
+                "name": "logAnalyticsDataSource",
+                "count": "[length(parameters('dataSources'))]"
+              },
+              "type": "Microsoft.OperationalInsights/workspaces/dataSources",
+              "apiVersion": "2020-08-01",
+              "name": "[format('{0}/{1}', parameters('workspaceName'), parameters('dataSources')[copyIndex()].name)]",
+              "kind": "[parameters('dataSources')[copyIndex()].kind]",
+              "properties": "[parameters('dataSources')[copyIndex()].properties]",
+              "dependsOn": [
+                "[resourceId('Microsoft.OperationalInsights/workspaces', parameters('workspaceName'))]"
+              ]
+            },
+            {
+              "condition": "[not(empty(parameters('diagSettings')))]",
+              "type": "Microsoft.Insights/diagnosticSettings",
+              "apiVersion": "2017-05-01-preview",
+              "scope": "[format('Microsoft.OperationalInsights/workspaces/{0}', parameters('workspaceName'))]",
+              "name": "[if(empty(parameters('diagSettings')), 'dummy-value', parameters('diagSettings').name)]",
+              "properties": {
+                "workspaceId": "[if(empty(parameters('diagSettings').workspaceId), json('null'), parameters('diagSettings').workspaceId)]",
+                "storageAccountId": "[if(empty(parameters('diagSettings').storageAccountId), json('null'), parameters('diagSettings').storageAccountId)]",
+                "eventHubAuthorizationRuleId": "[if(empty(parameters('diagSettings').eventHubAuthorizationRuleId), json('null'), parameters('diagSettings').eventHubAuthorizationRuleId)]",
+                "eventHubName": "[if(empty(parameters('diagSettings').eventHubName), json('null'), parameters('diagSettings').eventHubName)]",
+                "logs": [
+                  {
+                    "category": "Audit",
+                    "enabled": "[parameters('diagSettings').enableLogs]",
+                    "retentionPolicy": "[if(empty(parameters('diagSettings').retentionPolicy), json('null'), parameters('diagSettings').retentionPolicy)]"
+                  }
+                ],
+                "metrics": [
+                  {
+                    "category": "AllMetrics",
+                    "enabled": "[parameters('diagSettings').enableMetrics]",
+                    "retentionPolicy": "[if(empty(parameters('diagSettings').retentionPolicy), json('null'), parameters('diagSettings').retentionPolicy)]"
+                  }
+                ]
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.OperationalInsights/workspaces', parameters('workspaceName'))]"
+              ]
+            },
+            {
+              "condition": "[parameters('enableResourceLock')]",
+              "type": "Microsoft.Authorization/locks",
+              "apiVersion": "2016-09-01",
+              "scope": "[format('Microsoft.OperationalInsights/workspaces/{0}', parameters('workspaceName'))]",
+              "name": "[format('{0}-delete-lock', parameters('workspaceName'))]",
+              "properties": {
+                "level": "CanNotDelete",
+                "notes": "Enabled as part of IaC Deployment"
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.OperationalInsights/workspaces', parameters('workspaceName'))]"
+              ]
+            }
+          ],
+          "outputs": {
+            "name": {
+              "type": "string",
+              "value": "[parameters('workspaceName')]"
+            },
+            "id": {
+              "type": "string",
+              "value": "[resourceId('Microsoft.OperationalInsights/workspaces', parameters('workspaceName'))]"
+            }
+          }
+        }
+      },
+      "dependsOn": [
+        "[subscriptionResourceId('Microsoft.Resources/resourceGroups', parameters('platformRgName'))]"
+      ]
+    },
+    {
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2020-10-01",
+      "name": "deploy_appinsights",
+      "resourceGroup": "[parameters('platformRgName')]",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "location": {
+            "value": "[parameters('location')]"
+          },
+          "name": {
+            "value": "[parameters('appInsightsName')]"
+          },
+          "WorkspaceResourceId": {
+            "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('platformRgName')), 'Microsoft.Resources/deployments', 'deploy_logAnalytics')).outputs.id.value]"
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.5.6.12127",
+              "templateHash": "5643652394910061431"
+            }
+          },
+          "parameters": {
+            "name": {
+              "type": "string",
+              "metadata": {
+                "description": "Name of the Application Insight"
+              }
+            },
+            "location": {
+              "type": "string",
+              "defaultValue": "[resourceGroup().location]",
+              "metadata": {
+                "description": "Location for resources to be created"
+              }
+            },
+            "WorkspaceResourceId": {
+              "type": "string",
+              "metadata": {
+                "description": "ResourceId of Log Analytics to associate App Insights to."
+              }
+            },
+            "DisableIpMasking": {
+              "type": "bool",
+              "defaultValue": false,
+              "metadata": {
+                "description": "Enable to allow IP collection and storage."
+              }
+            },
+            "tags": {
+              "type": "object",
+              "defaultValue": {},
+              "metadata": {
+                "description": "Object containing resource tags."
+              }
+            },
+            "enableResourceLock": {
+              "type": "bool",
+              "defaultValue": false,
+              "metadata": {
+                "description": "Enable a Can Not Delete Resource Lock. Useful for production workloads."
+              }
+            }
+          },
+          "resources": [
+            {
+              "type": "Microsoft.Insights/components",
+              "apiVersion": "2020-02-02-preview",
+              "name": "[parameters('name')]",
+              "location": "[parameters('location')]",
+              "tags": "[if(not(empty(parameters('tags'))), parameters('tags'), null())]",
+              "kind": "web",
+              "properties": {
+                "Application_Type": "web",
+                "WorkspaceResourceId": "[parameters('WorkspaceResourceId')]",
+                "DisableIpMasking": "[parameters('DisableIpMasking')]"
+              }
+            },
+            {
+              "condition": "[parameters('enableResourceLock')]",
+              "type": "Microsoft.Authorization/locks",
+              "apiVersion": "2016-09-01",
+              "scope": "[format('Microsoft.Insights/components/{0}', parameters('name'))]",
+              "name": "[format('{0}-delete-lock', parameters('name'))]",
+              "properties": {
+                "level": "CanNotDelete",
+                "notes": "Enabled as part of IaC Deployment"
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.Insights/components', parameters('name'))]"
+              ]
+            }
+          ],
+          "outputs": {
+            "name": {
+              "type": "string",
+              "value": "[parameters('name')]"
+            },
+            "id": {
+              "type": "string",
+              "value": "[resourceId('Microsoft.Insights/components', parameters('name'))]"
+            }
+          }
+        }
+      },
+      "dependsOn": [
+        "[extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('platformRgName')), 'Microsoft.Resources/deployments', 'deploy_logAnalytics')]",
+        "[subscriptionResourceId('Microsoft.Resources/resourceGroups', parameters('platformRgName'))]"
+      ]
+    },
+    {
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2020-10-01",
+      "name": "deploy_appService_Plan",
+      "resourceGroup": "[parameters('platformRgName')]",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "location": {
+            "value": "[parameters('location')]"
+          },
+          "appPlanName": {
+            "value": "functionApp"
+          },
+          "skuName": {
+            "value": "[parameters('functionAppPlanSku')]"
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.5.6.12127",
+              "templateHash": "12542754275685813569"
+            }
+          },
+          "parameters": {
+            "appPlanName": {
+              "type": "string",
+              "metadata": {
+                "description": "Service plan name"
+              }
+            },
+            "location": {
+              "type": "string",
+              "defaultValue": "[resourceGroup().location]",
+              "metadata": {
+                "description": "Location for resources to be created"
+              }
+            },
+            "skuName": {
+              "type": "string",
+              "metadata": {
+                "description": "App service app plan type"
+              }
+            },
+            "skuCapacity": {
+              "type": "int",
+              "defaultValue": 1,
+              "metadata": {
+                "description": "Number of instances needed for the app service plan"
+              },
+              "maxValue": 10
+            },
+            "diagSettings": {
+              "type": "object",
+              "defaultValue": {},
+              "metadata": {
+                "name": "Diagnostic settings name",
+                "workspaceId": "Log analytics resource id",
+                "storageAccountId": "Storage account resource id",
+                "eventHubAuthorizationRuleId": "EventHub authorization rule id",
+                "eventHubName": "EventHub name",
+                "enableLogs": "Enable logs",
+                "enableMetrics": "Enable metrics",
+                "retentionPolicy": {
+                  "days": "Number of days to keep data",
+                  "enabled": "Enable retention policy"
+                },
+                "description": "Object containing diagnostics settings. If not provided diagnostics will not be set."
+              }
+            },
+            "enableResourceLock": {
+              "type": "bool",
+              "defaultValue": false,
+              "metadata": {
+                "description": "Enable a Can Not Delete Resource Lock. Useful for production workloads."
+              }
+            },
+            "tags": {
+              "type": "object",
+              "defaultValue": {},
+              "metadata": {
+                "Purpose": "Sample Bicep Template",
+                "Environment": "Development",
+                "Owner": "sample.user@arinco.com.au",
+                "description": "Object containing resource tags."
+              }
+            }
+          },
+          "resources": [
+            {
+              "type": "Microsoft.Web/serverfarms",
+              "apiVersion": "2020-12-01",
+              "name": "[parameters('appPlanName')]",
+              "tags": "[if(not(empty(parameters('tags'))), parameters('tags'), null())]",
+              "location": "[parameters('location')]",
+              "sku": {
+                "name": "[parameters('skuName')]",
+                "size": "[parameters('skuName')]",
+                "capacity": "[parameters('skuCapacity')]"
+              }
+            },
+            {
+              "condition": "[not(empty(parameters('diagSettings')))]",
+              "type": "Microsoft.Insights/diagnosticSettings",
+              "apiVersion": "2021-05-01-preview",
+              "scope": "[format('Microsoft.Web/serverfarms/{0}', parameters('appPlanName'))]",
+              "name": "[if(empty(parameters('diagSettings')), 'dummy-value', parameters('diagSettings').name)]",
+              "properties": {
+                "workspaceId": "[if(empty(parameters('diagSettings').workspaceId), json('null'), parameters('diagSettings').workspaceId)]",
+                "storageAccountId": "[if(empty(parameters('diagSettings').storageAccountId), json('null'), parameters('diagSettings').storageAccountId)]",
+                "eventHubAuthorizationRuleId": "[if(empty(parameters('diagSettings').eventHubAuthorizationRuleId), json('null'), parameters('diagSettings').eventHubAuthorizationRuleId)]",
+                "eventHubName": "[if(empty(parameters('diagSettings').eventHubName), json('null'), parameters('diagSettings').eventHubName)]",
+                "metrics": [
+                  {
+                    "category": "AllMetrics",
+                    "enabled": "[parameters('diagSettings').enableMetrics]",
+                    "retentionPolicy": "[if(empty(parameters('diagSettings').retentionPolicy), json('null'), parameters('diagSettings').retentionPolicy)]"
+                  }
+                ]
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.Web/serverfarms', parameters('appPlanName'))]"
+              ]
+            },
+            {
+              "condition": "[parameters('enableResourceLock')]",
+              "type": "Microsoft.Authorization/locks",
+              "apiVersion": "2016-09-01",
+              "scope": "[format('Microsoft.Web/serverfarms/{0}', parameters('appPlanName'))]",
+              "name": "[format('{0}-delete-lock', parameters('appPlanName'))]",
+              "properties": {
+                "level": "CanNotDelete",
+                "notes": "Enabled as part of IaC Deployment"
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.Web/serverfarms', parameters('appPlanName'))]"
+              ]
+            }
+          ],
+          "outputs": {
+            "name": {
+              "type": "string",
+              "value": "[parameters('appPlanName')]"
+            },
+            "id": {
+              "type": "string",
+              "value": "[resourceId('Microsoft.Web/serverfarms', parameters('appPlanName'))]"
+            }
+          }
+        }
+      },
+      "dependsOn": [
+        "[subscriptionResourceId('Microsoft.Resources/resourceGroups', parameters('platformRgName'))]"
+      ]
+    },
+    {
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2020-10-01",
+      "name": "deploy_Function_App",
+      "resourceGroup": "[parameters('platformRgName')]",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "location": {
+            "value": "[parameters('location')]"
+          },
+          "appInsightsId": {
+            "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('platformRgName')), 'Microsoft.Resources/deployments', 'deploy_appinsights')).outputs.id.value]"
+          },
+          "fncAppName": {
+            "value": "[parameters('fnAppName')]"
+          },
+          "functionRuntime": {
+            "value": "dotnet"
+          },
+          "serverFarmId": {
+            "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('platformRgName')), 'Microsoft.Resources/deployments', 'deploy_appService_Plan')).outputs.id.value]"
+          },
+          "storageAccountId": {
+            "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('platformRgName')), 'Microsoft.Resources/deployments', 'deploy_Storage_Account')).outputs.id.value]"
+          },
+          "subnetId": {
+            "value": "[format('{0}/subnets/application-sn', reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('platformRgName')), 'Microsoft.Resources/deployments', 'deploy_Virtual_Network')).outputs.id.value)]"
+          },
+          "functionContentShareName": {
+            "value": "functioncontentshare"
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.5.6.12127",
+              "templateHash": "8424356197931525421"
+            }
+          },
+          "parameters": {
+            "fncAppName": {
+              "type": "string",
+              "metadata": {
+                "description": "Name of Function App"
+              }
+            },
+            "location": {
+              "type": "string",
+              "defaultValue": "[resourceGroup().location]",
+              "metadata": {
+                "description": "Location for resources to be created"
+              }
+            },
+            "functionRuntime": {
+              "type": "string",
+              "allowedValues": [
+                "node",
+                "dotnet",
+                "java",
+                "python",
+                "powershell"
+              ],
+              "metadata": {
+                "description": "The language worker runtime to load in the function app."
+              }
+            },
+            "storageAccountId": {
+              "type": "string",
+              "metadata": {
+                "description": "ResourceId of Storage Account to host Function App."
+              }
+            },
+            "appInsightsId": {
+              "type": "string",
+              "metadata": {
+                "description": "ResourceId of Application Insights instance for Function App monitoring."
+              }
+            },
+            "subnetId": {
+              "type": "string",
+              "metadata": {
+                "description": "Subnet Id of VNET to integrate with. Assumes delegation already done."
+              }
+            },
+            "nodeVersion": {
+              "type": "string",
+              "defaultValue": "~12",
+              "metadata": {
+                "description": "Node.JS version. Only needed if runtime is node"
+              }
+            },
+            "preWarmedInstanceCount": {
+              "type": "int",
+              "defaultValue": 1,
+              "metadata": {
+                "description": "Only applies if you using Consumption or Premium service plans."
+              }
+            },
+            "serverFarmId": {
+              "type": "string",
+              "metadata": {
+                "description": "Resource Id of the server farm to host the function app. Needs to be an App Service Plan or Premium Plan"
+              }
+            },
+            "functionContentShareName": {
+              "type": "string",
+              "metadata": {
+                "description": "Function Content Share Name"
+              }
+            },
+            "use32BitWorkerProcess": {
+              "type": "bool",
+              "defaultValue": true,
+              "metadata": {
+                "description": "Sets 32-bit vs 64-bit worker architecture"
+              }
+            },
+            "corsAllowedOrigins": {
+              "type": "array",
+              "defaultValue": [],
+              "metadata": {
+                "description": "Array of allowed origins hosts.  Use [*] for allow-all."
+              }
+            },
+            "corsSupportCredentials": {
+              "type": "bool",
+              "defaultValue": false,
+              "metadata": {
+                "description": "True/False on whether to enable Support Credentials for CORS."
+              }
+            },
+            "vnetRouteAllEnabled": {
+              "type": "bool",
+              "defaultValue": true,
+              "metadata": {
+                "description": "Force all traffic to go via VNET"
+              }
+            },
+            "functionsRuntimeScaleMonitoringEnabled": {
+              "type": "bool",
+              "defaultValue": false,
+              "metadata": {
+                "description": "Enable when you are VNET integrated and need non-HTTP triggers for services inside a VNET."
+              }
+            },
+            "addAppSettings": {
+              "type": "array",
+              "defaultValue": [],
+              "metadata": {
+                "note": "Sample input",
+                "addAppSettings": [
+                  {
+                    "name": "key-name",
+                    "value": "key-value"
+                  }
+                ],
+                "description": "Additional App Settings to include on top of that required for this function app"
+              }
+            },
+            "diagSettings": {
+              "type": "object",
+              "defaultValue": {},
+              "metadata": {
+                "description": "Object containing diagnostics settings. If not provided diagnostics will not be set."
+              }
+            },
+            "enableResourceLock": {
+              "type": "bool",
+              "defaultValue": false,
+              "metadata": {
+                "description": "Enable a Can Not Delete Resource Lock. Useful for production workloads."
+              }
+            },
+            "tags": {
+              "type": "object",
+              "defaultValue": {},
+              "metadata": {
+                "description": "Object containing resource tags."
+              }
+            }
+          },
+          "variables": {
+            "storageAccountName": "[split(parameters('storageAccountId'), '/')[8]]"
+          },
+          "resources": [
+            {
+              "type": "Microsoft.Web/sites",
+              "apiVersion": "2021-01-15",
+              "name": "[parameters('fncAppName')]",
+              "location": "[parameters('location')]",
+              "tags": "[if(not(empty(parameters('tags'))), parameters('tags'), null())]",
+              "identity": {
+                "type": "SystemAssigned"
+              },
+              "kind": "functionapp",
+              "properties": {
+                "httpsOnly": true,
+                "serverFarmId": "[parameters('serverFarmId')]",
+                "siteConfig": {
+                  "use32BitWorkerProcess": "[parameters('use32BitWorkerProcess')]",
+                  "http20Enabled": true,
+                  "minTlsVersion": "1.2",
+                  "scmMinTlsVersion": "1.2",
+                  "ftpsState": "Disabled",
+                  "preWarmedInstanceCount": "[parameters('preWarmedInstanceCount')]",
+                  "vnetRouteAllEnabled": "[parameters('vnetRouteAllEnabled')]",
+                  "functionsRuntimeScaleMonitoringEnabled": "[parameters('functionsRuntimeScaleMonitoringEnabled')]",
+                  "cors": {
+                    "allowedOrigins": "[parameters('corsAllowedOrigins')]",
+                    "supportCredentials": "[parameters('corsSupportCredentials')]"
+                  },
+                  "appSettings": "[union(createArray(createObject('name', 'AzureWebJobsStorage', 'value', format('DefaultEndpointsProtocol=https;AccountName={0};AccountKey={1}', variables('storageAccountName'), listKeys(parameters('storageAccountId'), '2019-06-01').keys[0].value)), createObject('name', 'WEBSITE_CONTENTAZUREFILECONNECTIONSTRING', 'value', format('DefaultEndpointsProtocol=https;AccountName={0};AccountKey={1}', variables('storageAccountName'), listKeys(parameters('storageAccountId'), '2019-06-01').keys[0].value)), createObject('name', 'AzureWebJobsStorage', 'value', format('DefaultEndpointsProtocol=https;AccountName={0};AccountKey={1}', variables('storageAccountName'), listKeys(parameters('storageAccountId'), '2019-06-01').keys[0].value)), createObject('name', 'FUNCTIONS_WORKER_RUNTIME', 'value', parameters('functionRuntime')), createObject('name', 'WEBSITE_NODE_DEFAULT_VERSION', 'value', parameters('nodeVersion')), createObject('name', 'FUNCTIONS_EXTENSION_VERSION', 'value', '~3'), createObject('name', 'APPINSIGHTS_INSTRUMENTATIONKEY', 'value', reference(parameters('appInsightsId'), '2020-02-02-preview').InstrumentationKey), createObject('name', 'WEBSITE_VNET_ROUTE_ALL', 'value', '1'), createObject('name', 'WEBSITE_CONTENTOVERVNET', 'value', '1'), createObject('name', 'WEBSITE_CONTENTSHARE', 'value', parameters('functionContentShareName')), createObject('name', 'WEBSITE_DNS_SERVER', 'value', '168.63.129.16')), parameters('addAppSettings'))]"
+                }
+              }
+            },
+            {
+              "type": "Microsoft.Web/sites/networkConfig",
+              "apiVersion": "2020-06-01",
+              "name": "[format('{0}/{1}', parameters('fncAppName'), 'virtualNetwork')]",
+              "properties": {
+                "subnetResourceId": "[parameters('subnetId')]",
+                "swiftSupported": true
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.Web/sites', parameters('fncAppName'))]"
+              ]
+            },
+            {
+              "condition": "[not(empty(parameters('diagSettings')))]",
+              "type": "Microsoft.Insights/diagnosticSettings",
+              "apiVersion": "2017-05-01-preview",
+              "scope": "[format('Microsoft.Web/sites/{0}', parameters('fncAppName'))]",
+              "name": "[if(empty(parameters('diagSettings')), 'dummy-value', parameters('diagSettings').name)]",
+              "properties": {
+                "workspaceId": "[if(empty(parameters('diagSettings').workspaceId), json('null'), parameters('diagSettings').workspaceId)]",
+                "storageAccountId": "[if(empty(parameters('diagSettings').storageAccountId), json('null'), parameters('diagSettings').storageAccountId)]",
+                "eventHubAuthorizationRuleId": "[if(empty(parameters('diagSettings').eventHubAuthorizationRuleId), json('null'), parameters('diagSettings').eventHubAuthorizationRuleId)]",
+                "eventHubName": "[if(empty(parameters('diagSettings').eventHubName), json('null'), parameters('diagSettings').eventHubName)]",
+                "logs": [
+                  {
+                    "category": "FunctionAppLogs",
+                    "enabled": "[parameters('diagSettings').enableLogs]",
+                    "retentionPolicy": "[if(empty(parameters('diagSettings').retentionPolicy), json('null'), parameters('diagSettings').retentionPolicy)]"
+                  }
+                ],
+                "metrics": [
+                  {
+                    "category": "AllMetrics",
+                    "enabled": "[parameters('diagSettings').enableMetrics]",
+                    "retentionPolicy": "[if(empty(parameters('diagSettings').retentionPolicy), json('null'), parameters('diagSettings').retentionPolicy)]"
+                  }
+                ]
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.Web/sites', parameters('fncAppName'))]"
+              ]
+            },
+            {
+              "condition": "[parameters('enableResourceLock')]",
+              "type": "Microsoft.Authorization/locks",
+              "apiVersion": "2016-09-01",
+              "scope": "[format('Microsoft.Web/sites/{0}', parameters('fncAppName'))]",
+              "name": "[format('{0}-delete-lock', parameters('fncAppName'))]",
+              "properties": {
+                "level": "CanNotDelete",
+                "notes": "Enabled as part of IaC Deployment"
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.Web/sites', parameters('fncAppName'))]"
+              ]
+            }
+          ],
+          "outputs": {
+            "name": {
+              "type": "string",
+              "value": "[parameters('fncAppName')]"
+            },
+            "id": {
+              "type": "string",
+              "value": "[resourceId('Microsoft.Web/sites', parameters('fncAppName'))]"
+            }
+          }
+        }
+      },
+      "dependsOn": [
+        "[extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('platformRgName')), 'Microsoft.Resources/deployments', 'deploy_appinsights')]",
+        "[extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('platformRgName')), 'Microsoft.Resources/deployments', 'deploy_appService_Plan')]",
+        "[subscriptionResourceId('Microsoft.Resources/resourceGroups', parameters('platformRgName'))]",
+        "[extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('platformRgName')), 'Microsoft.Resources/deployments', 'deploy_Storage_Account')]",
+        "storageAccountPE",
+        "[extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('platformRgName')), 'Microsoft.Resources/deployments', 'deploy_Virtual_Network')]"
+      ]
+    }
+  ]
+}
